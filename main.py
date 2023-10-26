@@ -1,6 +1,9 @@
+from pathlib import Path
 from string import ascii_uppercase
 from dataclasses import dataclass
 
+from aiofile import AIOFile, LineReader
+from aionotify import Watcher, Flags
 from lark import Lark, Transformer, v_args, Discard
 
 
@@ -18,33 +21,46 @@ cat: R "ead the file \\"" FILENAME "\\""
 
 
 @dataclass
-class CreateFileAction:
-    name: str
+class FileAction:
+    path: Path
+
+    async def run(self):
+        pass
 
 
 @dataclass
-class DeleteFileAction:
-    name: str
+class CreateFileAction(FileAction):
+    async def run(self):
+        self.path.open("a")
 
 
 @dataclass
-class CreateDirAction:
-    name: str
+class DeleteFileAction(FileAction):
+    async def run(self):
+        self.path.unlink()
 
 
 @dataclass
-class DeleteDirAction:
-    name: str
+class CreateDirAction(FileAction):
+    async def run(self):
+        self.path.mkdir()
 
 
 @dataclass
-class NavigateAction:
-    name: str
+class DeleteDirAction(FileAction):
+    async def run(self):
+        self.path.rmdir()
 
 
 @dataclass
-class ReadAction:
-    name: str
+class NavigateAction(FileAction):
+    pass
+
+
+@dataclass
+class ReadAction(FileAction):
+    async def run(self):
+        return self.path.open("r").read()
 
 
 class DropLetters(Transformer):
@@ -105,17 +121,17 @@ class ActionTransformer(Transformer):
     def actions(item):
         return item
     def touch(self, item):
-        return CreateFileAction(name=item)
+        return CreateFileAction(path=item)
     def rm(self, item):
-        return DeleteFileAction(name=item)
+        return DeleteFileAction(path=item)
     def mkdir(self, item):
-        return CreateDirAction(name=item)
+        return CreateDirAction(path=item)
     def rmdir(self, item):
-        return DeleteDirAction(name=item)
+        return DeleteDirAction(path=item)
     def chdir(self, item):
-        return NavigateAction(name=item)
+        return NavigateAction(path=item)
     def cat(self, item):
-        return ReadAction(name=item)
+        return ReadAction(path=item)
 
 
 class Parser:
@@ -136,8 +152,6 @@ class Parser:
 class State:
     def __init__(self, root: str = "data") -> None:
         self.root = root
-
-    def do_action(self, )
 
 
 parser = Parser([DropLetters(), NumberTransformer(), StringTransformer(), ActionTransformer()])
