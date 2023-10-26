@@ -1,0 +1,43 @@
+DIRNAME: /[a-z]*/ ("/" /[a-z]+/)*
+FILENAME: /[a-z0-9]+/ ("." /[a-z]+/)?
+
+number: a | one | two | three | four | five | six | seven | eight | nine | ten | smallnumber
+a: A
+one: O "ne"
+two: T "wo"
+three: T "hree"
+four: F "our"
+five: F "ive"
+six: S "ix"
+seven: S "even"
+eight: E "ight"
+nine: N "ine"
+ten: T "en"
+smallnumber: /[1]?[0-9]/
+
+A: /[aA]/
+B: /[bB]/
+C: /[cC]/
+D: /[dD]/
+E: /[eE]/
+F: /[fF]/
+G: /[gG]/
+H: /[hH]/
+I: /[iI]/
+J: /[jJ]/
+K: /[kK]/
+L: /[lL]/
+M: /[mM]/
+N: /[nN]/
+O: /[oO]/
+P: /[pP]/
+Q: /[qQ]/
+R: /[rR]/
+S: /[sS]/
+T: /[tT]/
+U: /[uU]/
+V: /[vV]/
+W: /[wW]/
+X: /[xX]/
+Y: /[yY]/
+Z: /[zZ]/
