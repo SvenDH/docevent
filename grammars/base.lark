@@ -1,7 +1,19 @@
-DIRNAME: /[a-z]*/ ("/" /[a-z]+/)*
-FILENAME: /[a-z0-9]+/ ("." /[a-z]+/)?
+DIRNAME: /[.a-z]+/ ("/" /[a-z]+/ )*
+FILENAME: /[a-z0-9]+/ ("." /[a-z0-9]+/ )?
 
-number: a | one | two | three | four | five | six | seven | eight | nine | ten | smallnumber
+WORD: /[A-Za-z0-9{{}}]+/
+
+jsonvalue: object | array | string | number | (TRUE | FALSE | NULL) ws
+object: "{" ws ( string ":" ws jsonvalue ("," ws string ":" ws jsonvalue)* )? "}" ws
+array: "[" ws ( jsonvalue ("," ws jsonvalue)* )? "]" ws
+string: "\"" ( /[^"\\]/ | "\\" ( /["\\\/bfnrt]/ | "u" /[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]/ ) )* "\"" ws
+number: ("-"? ( /[0-9]/ | /[1-9][0-9]*/ )) ("." /[0-9]+/ )? ( /[eE][-+]?[0-9]+/ )? ws
+ws: ( /[ \t\n]/ ws)?
+TRUE: "true"
+FALSE: "false"
+NULL: "null"
+
+smallnumber: a | one | two | three | four | five | six | seven | eight | nine | ten | /[1]?[0-9]/
 a: A
 one: O "ne"
 two: T "wo"
@@ -13,7 +25,6 @@ seven: S "even"
 eight: E "ight"
 nine: N "ine"
 ten: T "en"
-smallnumber: /[1]?[0-9]/
 
 A: /[aA]/
 B: /[bB]/

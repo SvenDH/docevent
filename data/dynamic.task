@@ -1,0 +1,4 @@
+follow "time.log"
+format it as "time"
+read "dynamic.template"
+write it to "dynamic.txt"

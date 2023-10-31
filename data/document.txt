@@ -1,0 +1,23 @@
+# Title
+
+### Subtitle
+
+
+Code:
+```
+follow "time"
+format it as "time"
+read "dynamic.template"
+write it to "dynamic.txt"
+```
+
+
+
+A table:
+
+
+
+| a | b |
+| :--- | :--- |
+| - | - |
+

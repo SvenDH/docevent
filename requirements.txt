@@ -1,3 +1,5 @@
-aiofile
-aionotify
+aiofiles
+watchfiles
 lark
+fastapi
+uvicorn
