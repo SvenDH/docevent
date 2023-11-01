@@ -29,9 +29,11 @@ cond: ( {condoptions} )
 
 text: string | ("'" jsonvalue "'")
 textorit: text | "it"
+textorfile: text | ("file " FILENAME)
 textoritorfile: textorit | ("file " FILENAME)
 theendof: "the end of "
-sep: ("\\n" | " and ")
+formatted: " formatted"
+sep: "\\n"+
 
 {base}
 """
@@ -81,7 +83,6 @@ class State:
         return None
     
     def run(self, path: str, action: Action):
-        print(path)
         logger = WriteAction(path=str(path).replace(".task", ".log"), overwrite=False)
         return logger.pipe(self, action.pipe(self, None))
 
@@ -219,27 +220,30 @@ class FollowAction(ReadAction):
 
 @dataclass
 class WriteAction(FileAction):
-    pattern: ClassVar[str] = 'W "rite " textorit (" to " theendof? "\\"" FILENAME "\\"")?'
+    pattern: ClassVar[str] = 'W "rite " textorit formatted? (" to " theendof? "\\"" FILENAME "\\"")?'
 
     text: str | None = None
     line: bool = True
     overwrite: bool = True
+    format: bool = False
 
     async def run(self, state: State):
-        line = (state.format(self.text or state.line) or "") + ("\n" if self.line else "")
+        line = self.text or state.line or ""
+        if self.format:
+            line = state.format(line)
+        line += ("\n" if self.line else "")
         if self.path is None:
             yield line
         else:
-            file = state.fullpath(self.path)
-            async with aiofiles.open(file, "w+" if self.overwrite else "a+") as f:
+            async with aiofiles.open(state.fullpath(self.path), "w+" if self.overwrite else "a+") as f:
                 await f.write(line)
                 await f.flush()
                 yield None
 
 
 @dataclass
-class FormatAction(FileAction):
-    pattern: ClassVar[str] = 'F "ormat " textoritorfile (" as \\"" WORD "\\"")?'
+class StoreAction(FileAction):
+    pattern: ClassVar[str] = 'S "tore " textoritorfile (" as \\"" WORD "\\"")?'
     
     text: str | None = None
     var: str | None = None
@@ -252,7 +256,6 @@ class FormatAction(FileAction):
             data = self.text
         else:
             data = state.line
-        data = state.format(data)
         if self.var is not None:
             state.ctx[state.format(self.var)] = data
         else:
@@ -278,27 +281,38 @@ class AskAction(FileAction):
         else:
             data = state.line
         data = state.format(data)
-        llm = OpenAI(openai_api_key="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")
+        llm = OpenAI()
         yield await llm.apredict(data)
 
 
 @dataclass
 class ReplaceAction(FileAction):
-    pattern: ClassVar[str] = 'R "eplace " text " with " textoritorfile'
+    pattern: ClassVar[str] = 'R "eplace " text " with " textorfile'
     
     text: str | None = None
     replace: str | None = None
 
+    def set_field(self, state: State, data, text: str):
+        idx = state.format(self.text)
+        try:
+            data[int(idx)] = text
+        except:
+            data[idx] = text
+        return data
+
     async def run(self, state: State):
         if self.path is not None:
             async with aiofiles.open(state.fullpath(self.path)) as f:
-                data = await f.read()
-        elif self.replace is not None:
-            data = self.replace
+                text = await f.read()
         else:
-            data = state.line
-        data = state.format(data)
-
+            text = self.replace
+        text = state.format(text)
+        try:
+            data = json.loads(state.line)
+            data = json.dumps(self.set_field(state, data, text))
+        except:
+            data = state.line.split(" ")
+            data = " ".join(self.set_field(state, data, text))
         yield data
 
 
@@ -414,8 +428,14 @@ class StringTransformer(Transformer):
         if (args):
             return args[0]
         return None
+    def textorfile(self, item):
+        return item
     def textoritorfile(self, item):
         return item
+    def formatted(self):
+        return "formatted"
+    def endof(self):
+        return "endof"
 
 
 TERMINAL_ACTION = PrintAction()
@@ -449,23 +469,32 @@ class ActionTransformer(Transformer):
         return FollowAction(path=item, lines=True, follow=True, tail=0)
     def writeaction(self, text, *args):
         if len(args) > 1:
-            return WriteAction(path=args[-1], text=text, overwrite=False)
+            path = None
+            format = args[0] == "formatted"
+            overwrite = args[-2] != "endof"
+            if isinstance(args[-1], Path):
+                path = args[-1]
+            return WriteAction(path=path, format=format, text=text, overwrite=overwrite)
         return WriteAction(path=args[0] if args else None, text=text, overwrite=True)
-    def formataction(self, text, *args):
+    def storeaction(self, text, *args):
         var = None
         if args:
             var = args[0]
         if isinstance(text, Path):
-            return FormatAction(path=text, var=var)
+            return StoreAction(path=text, var=var)
         elif text is not None:
-            return FormatAction(text=text, var=var)
-        return FormatAction(var=var)
+            return StoreAction(text=text, var=var)
+        return StoreAction(var=var)
     def askaction(self, text):
         if isinstance(text, Path):
             return AskAction(path=text)
         elif text is not None:
             return AskAction(text=text)
         return AskAction()
+    def replaceaction(self, text, other):
+        if isinstance(other, Path):
+            return ReplaceAction(text=text, path=other)
+        return ReplaceAction(text=text, replace=other)
     def match(self, item):
         return Match(text=item)
 
@@ -522,7 +551,7 @@ class Generator:
         return result["choices"][0]["text"]
 
 
-actions = [CreateFileAction, DeleteFileAction, CreateDirAction, DeleteDirAction, NavigateAction, ListDirAction, ReadAction, FollowAction, WriteAction, FormatAction, AskAction]
+actions = [CreateFileAction, DeleteFileAction, CreateDirAction, DeleteDirAction, NavigateAction, ListDirAction, ReadAction, FollowAction, WriteAction, StoreAction, AskAction, ReplaceAction]
 conditions = [Match]
 transformers = [DropLetters, NumberTransformer, JsonTransformer, StringTransformer, ActionTransformer]
 
@@ -636,7 +665,7 @@ async def streamfile(path: str, edit: FileEdit):
     if edit.text is None:
         action = DeleteFileAction(path)
     else:
-        action = WriteAction(path, edit.text, line=False, overwrite=edit.overwrite)
+        action = WriteAction(path, edit.text, format=False, line=False, overwrite=edit.overwrite)
     async for _ in action.run(state):
         pass
     if edit.text is not None and path.endswith(".task"):

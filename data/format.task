@@ -1,0 +1,5 @@
+follow "time.log"
+store it as "time"
+read "format.data"
+replace "time" with "{time}"
+write it to "format.data"
